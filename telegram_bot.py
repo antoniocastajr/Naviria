@@ -3,40 +3,12 @@
 
 # DESCRIPTION: Naviria is a personal AI assistant that can help you with various tasks such as answering questions, writing emails, and scheduling meetings.
 
-# ----------------------------------------IMPORTS----------------------------------------
-import logging                                                                                  # For debugging and information purposes                                 
-import os                                                                                       # To set environment variables for API keys
-import constants                                                                                # constants.py contains the API keys  
-
+# ----------------------------------------IMPORTS----------------------------------------                              
 from telegram import ForceReply, Update                                                         # To send messages and replies to users
-from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters     # To handle commands and messages from users
-from langchain_openai import ChatOpenAI                                                         # To use OpenAI's chat model for generating responses
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ChatMessage         # To handle different types of messages in the chat
+from telegram.ext import ContextTypes                                                           # To handle commands and messages from users
 
-# ----------------------------------------TOKENS-----------------------------------------
-
-TELEGRAM_TOKEN = constants.TELEGRAM_TOKEN  
-OPENAI_API_KEY= constants.OPENAI_API_KEY   
-TAVILY_API_KEY= constants.TAVILY_API_KEY   
-
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
-os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
-
-# Set the OpenAI model to use for generating responses
-llm = ChatOpenAI(model_name = "gpt-3.5-turbo", temperature = 0)
-
-# ----------------------------------------SETUP------------------------------------------
-
-# Logging configuration (print time, name, level and message using the terminal)
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-
-# Suppress the httpx library logs to avoid cluttering the output
-logging.getLogger("httpx").setLevel(logging.WARNING)
-
-logger = logging.getLogger(__name__)
+from main import LOGGER                                                                         # Logger for debugging and information purposes    
+from agent import set_model                                                                     # Function to set the model for generating responses
 
 # ----------------------------------------COMMAND HANDLERS--------------------------------
 
@@ -62,31 +34,10 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "- Stablish a meeting on Google Calendar\n" 
     await update.message.reply_text(reply)
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    messages = [HumanMessage(content=update.message.text)] 
+async def respond(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        response = llm.invoke(messages)  
-        await update.message.reply_text(response.content)  
+        response = set_model(update.message.text)  
+        await update.message.reply_text(response)  
     except Exception as e:
-        logger.error(f"Error processing message: {e}")
+        LOGGER.error(f"Error processing message: {e}")
         await update.message.reply_text("Sorry, I couldn't process your request. Please try again later.")
-
-
-# ----------------------------------------MAIN FUNCTION-----------------------------------
-
-def main() -> None:
-    # Initialize the application with the bot token
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-
-    # Command handlers for the bot
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-
-    # Message handler for text messages (excluding commands)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == '__main__':
-    main()
