@@ -4,19 +4,15 @@
 # DESCRIPTION: Naviria is a personal AI assistant that can help you with various tasks such as answering questions, writing emails, and scheduling meetings.
 # DESCRIPTION OF THE FILE: This script sets up a Telegram bot using the python-telegram-bot library.
 
-# ----------------------------------------IMPORTS----------------------------------------
+# --------------------------------------IMPORTS------------------------------------------
 import logging                                                                                  # For debugging and information purposes
-import constants                                                                                # constants.py contains the API keys
 import telegram_bot                                                                             # Import the telegram module for bot functionalities
 
 from telegram import  Update                                                                    # To send messages and replies to users
 from telegram.ext import Application, CommandHandler, MessageHandler, filters                   # To handle commands and messages from users
+from constants import TELEGRAM_TOKEN                                                            # Import the Telegram token from constants
 
-# ----------------------------------------TOKENS-----------------------------------------
-
-TELEGRAM_TOKEN = constants.TELEGRAM_TOKEN  
-
-# ----------------------------------------SETUP------------------------------------------
+# --------------------------------------DEBUGGING----------------------------------------
 
 # Logging configuration (print time, name, level and message using the terminal)
 logging.basicConfig(

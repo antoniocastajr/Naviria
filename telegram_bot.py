@@ -6,38 +6,33 @@
 # ----------------------------------------IMPORTS----------------------------------------                              
 from telegram import ForceReply, Update                                                         # To send messages and replies to users
 from telegram.ext import ContextTypes                                                           # To handle commands and messages from users
+from telegram.error import NetworkError
 
 from main import LOGGER                                                                         # Logger for debugging and information purposes    
 from agent import set_model                                                                     # Function to set the model for generating responses
+from constants import START_PROMPT, HELP_PROMPT                                                 # Constants for initial prompts
 
 # ----------------------------------------COMMAND HANDLERS--------------------------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
-    reply = (
-        "Welcome to Naviria, your personal AI assistant created by Antonio Castañares Rodríguez.\n\n"
-        "I can help you with various tasks such as answering questions, writing emails, and scheduling meetings.\n\n"
-    )
     # Send a message when the command /start is issued
     await update.message.reply_html(
-        f"Hi {user.mention_html()}! \n\n{reply}",
+        f"Hi {user.mention_html()}! \n\n{START_PROMPT}",
         reply_markup=ForceReply(selective=True)
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a message when the command /help is issued."""
-    reply = "Naviria is your personal AI assistant.\n\n" \
-            "You can ask me anything, and I will do my best to assist you. Here are some funcionabilities:\n\n" \
-            "- Conversation mode:\n" \
-            "- Answering questions using deep research\n" \
-            "- Write a email using Gmail\n" \
-            "- Stablish a meeting on Google Calendar\n" 
-    await update.message.reply_text(reply)
-
+    # Send a message when the command /start is issued
+    await update.message.reply_text(HELP_PROMPT)
+        
 async def respond(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         response = set_model(update.message.text)  
         await update.message.reply_text(response)  
+    except NetworkError as e:
+        LOGGER.error("Network error during message processing: %s", str(e))
+        await update.message.reply_text("I'm having trouble connecting to external services. Please try again later.")
     except Exception as e:
-        LOGGER.error(f"Error processing message: {e}")
-        await update.message.reply_text("Sorry, I couldn't process your request. Please try again later.")
+        LOGGER.exception("Unexpected error: %s", str(e))
+        await update.message.reply_text("Something went wrong. Try again.")
