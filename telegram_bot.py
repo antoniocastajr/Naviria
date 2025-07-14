@@ -10,7 +10,7 @@ from telegram.error import NetworkError
 
 from main import LOGGER                                                                         # Logger for debugging and information purposes    
 from agent import set_model                                                                     # Function to set the model for generating responses
-from constants import START_PROMPT, HELP_PROMPT                                                 # Constants for initial prompts
+from prompts import START_PROMPT, HELP_PROMPT                                                 # Constants for initial prompts
 
 # ----------------------------------------COMMAND HANDLERS--------------------------------
 

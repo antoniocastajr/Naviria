@@ -5,12 +5,18 @@
 # DESCRIPTION OF THE FILE: This script sets up a Telegram bot using the python-telegram-bot library.
 
 # --------------------------------------IMPORTS------------------------------------------
+import os
 import logging                                                                                  # For debugging and information purposes
 import telegram_bot                                                                             # Import the telegram module for bot functionalities
 
 from telegram import  Update                                                                    # To send messages and replies to users
 from telegram.ext import Application, CommandHandler, MessageHandler, filters                   # To handle commands and messages from users
-from constants import TELEGRAM_TOKEN                                                            # Import the Telegram token from constants
+from dotenv import load_dotenv                                                                  # To set environment variables for API keys
+# ----------------------------------------TOKENS-----------------------------------------
+
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 # --------------------------------------DEBUGGING----------------------------------------
 
