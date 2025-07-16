@@ -9,17 +9,21 @@ import operator
 import os
 
 from langchain.chat_models import init_chat_model                                                      
-from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage                      
+from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, AIMessage  
+from langchain_core.runnables.config import RunnableConfig
+from langgraph.store.memory import InMemoryStore
+from langgraph.store.base import BaseStore
+from langgraph.checkpoint.memory import MemorySaver 
 from langchain_tavily import TavilySearch
 from langchain_community.document_loaders import WikipediaLoader
 from langchain_core.tools import tool  
-from langgraph.prebuilt import ToolNode, tools_condition                                   
+from langgraph.prebuilt import ToolNode                                 
 from langgraph.graph import StateGraph, START, END                          
 from pydantic import BaseModel, Field                                        
 
 from main import LOGGER
 from dotenv import load_dotenv                                                                  
-from prompts import LLM_PROMPT                                                         
+from prompts import LLM_PROMPT, CREATE_MEMORY_PROMPT                                                         
 from typing import Annotated, List
 
 # -------------------------------------TOKENS-----------------------------------------
@@ -34,23 +38,36 @@ models = {#'openai:gpt-4.1': init_chat_model("openai:gpt-4.1"),
 # -------------------------------------VARIABLES--------------------------------------
 
 llm = models['openai:gpt-3.5-turbo']                                                  
-naviria_path = "naviria_graph.png"                                                             
+naviria_path = "naviria_graph.png"  
+across_thread_memory = InMemoryStore() 
+within_thread_memory = MemorySaver()                                                        
 
 # -------------------------------------STATE------------------------------------------
+
 class State(BaseModel):
     messages : Annotated[List[AnyMessage], operator.add] = Field(
         description="List of messages in the conversation")
-    context : Annotated[List[str], operator.add] = Field(
-        description="Context provided by Tavily and Wikipedia")
 
 # -------------------------------------NODES------------------------------------------
-def llm_node(state: State):
+
+def llm_node(state: State, config: RunnableConfig, store: BaseStore):
 
     """ Runs the LLM without deep_research """ 
 
-    LOGGER.info("Running LLM with messages:%s\n", state.messages)
+    user_id = config["configurable"]["user_id"]
+    namespace = ("memory", user_id)
+    key = "user_memory"
 
-    response = llm.invoke([SystemMessage(content=LLM_PROMPT)] + state.messages)
+    existing_memory = store.get(namespace, key)
+    if existing_memory:
+        # Value is a dictionary with a memory key
+        memory = existing_memory.value.get('memory')
+    else:
+        memory = "No existing memory found."
+        
+    system_msg = LLM_PROMPT.format(memory=memory)
+
+    response = llm.invoke([SystemMessage(content=system_msg)] + state.messages)
 
     return {"messages": [response]}
 
@@ -59,35 +76,49 @@ def tavily_tool(query: str):
     
     """ Retrieve docs from internet using Tavily """
 
-    LOGGER.info("Running Tavily tool with query:%s\n", query)
-    
-    tavily_search = TavilySearch(max_results=1, exclude_domains=['wikipedia.org'])
+    tavily_search = TavilySearch(max_results=1, 
+                                 exclude_domains=['wikipedia.org'])
     result = tavily_search.invoke(query)
- 
-    if not result or not result["results"]:
-        LOGGER.warning("No results found by Tavily for query: %s", query)
-        return {"context": ["No relevant documents found by Tavily."]}
-        
-    doc = result["results"][0]
-    formatted_doc = f'<Document href="{doc["url"]}"/>\n{doc["content"]}\n</Document>'
-    return {"context": [formatted_doc]}  
+
+    return result["results"][0]
 
 @tool    
 def wikipedia_tool(query: str):
     
     """ Retrieve docs from Wikipedia """
 
-    LOGGER.info("Running Wikipedia tool with query:%s\n", query)
-
     result = WikipediaLoader(query=query, load_max_docs=1).load()
 
-    if not result:
-        return {"context": ["No relevant documents found in Wikipedia."]}
+    return result[0]
 
-    doc = result[0]
-    formatted_doc = f'<Document source="{doc.metadata["source"]}"/>\n{doc.page_content}\n</Document>'
-    return {"context": [formatted_doc]}
+def save_memory(state: State, config: RunnableConfig, store: BaseStore):
 
+    """ Saves the conversation in memory"""
+
+    user_id = config["configurable"]["user_id"]
+    namespace = ("memory", user_id)
+    key = "user_memory"
+
+    existing_memory = store.get(namespace, key)
+    if existing_memory:
+        # Value is a dictionary with a memory key
+        memory = existing_memory.value.get('memory')
+    else:
+        memory = "No existing memory found."
+
+    system_msg = CREATE_MEMORY_PROMPT.format(memory=memory)
+    response = llm.invoke([SystemMessage(content=system_msg)] + state.messages)
+
+    store.put(namespace,key, {"memory": response.content})
+
+def tools_condition(state: State, config: RunnableConfig):
+
+    """ Determines which is the next node to run"""
+
+    last_message = state.messages[-1]
+    if isinstance(last_message, AIMessage) and last_message.additional_kwargs.get("tool_calls"):
+        return "search_tools"
+    return "save_memory"
 
 # -------------------------------------LLM_CONFIGURATION------------------------------
 
@@ -100,15 +131,16 @@ builder = StateGraph(State)
 
 # Nodes
 builder.add_node("llm", llm_node)    
-builder.add_node("tools", ToolNode(tools))      
+builder.add_node("search_tools", ToolNode(tools))  
+builder.add_node("save_memory", save_memory) 
+
 # Logic
 builder.add_edge(START, "llm")
-builder.add_conditional_edges('llm', tools_condition) 
-builder.add_edge("tools", "llm")
+builder.add_conditional_edges('llm', tools_condition, ["search_tools", "save_memory"]) 
+builder.add_edge("search_tools", "llm")
+builder.add_edge("save_memory", END)
 
-builder.add_edge("llm", END)
-
-graph = builder.compile()
+graph = builder.compile(checkpointer=within_thread_memory, store=across_thread_memory)
 
 # -------------------------------------PLOTTING---------------------------------------
 
@@ -120,6 +152,7 @@ if not os.path.exists(naviria_path):
 
 # -------------------------------------MODEL------------------------------------------
 
-def set_model(input: str):
-    response = graph.invoke({"messages": [HumanMessage(content=input)]})
+def set_model(input: str, user_id: int):
+    config = {"configurable": {"thread_id": str(user_id), "user_id": str(user_id)}}
+    response = graph.invoke({"messages": [HumanMessage(content=input)]}, config)
     return response["messages"][-1].content

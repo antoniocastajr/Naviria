@@ -28,7 +28,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         
 async def respond(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        response = set_model(update.message.text)  
+        response = set_model(update.message.text, update.effective_user.id)  
         await update.message.reply_text(response)  
     except NetworkError as e:
         LOGGER.error("Network error during message processing: %s", str(e))
