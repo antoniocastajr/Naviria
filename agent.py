@@ -8,7 +8,8 @@
 import operator
 import os
 
-from langchain.chat_models import init_chat_model                                                      
+from langchain.chat_models import init_chat_model 
+from langchain_ollama import ChatOllama                                                     
 from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, AIMessage  
 from langchain_core.runnables.config import RunnableConfig
 from langgraph.store.memory import InMemoryStore
@@ -32,15 +33,16 @@ load_dotenv()
 
 # -------------------------------------MODELS-----------------------------------------
 
-models = {#'openai:gpt-4.1': init_chat_model("openai:gpt-4.1"), 
-          'openai:gpt-3.5-turbo': init_chat_model("openai:gpt-3.5-turbo")}
+models = {
+    'llama3.1': ChatOllama(model="llama3.1:8b"),
+    'openai:gpt-3.5-turbo': init_chat_model("openai:gpt-3.5-turbo"),
+    'openai:gpt-4.1': init_chat_model("openai:gpt-4.1")
+}
 
 # -------------------------------------VARIABLES--------------------------------------
 
 llm = models['openai:gpt-3.5-turbo']                                                  
-naviria_path = "naviria_graph.png"  
-across_thread_memory = InMemoryStore() 
-within_thread_memory = MemorySaver()                                                        
+naviria_path = "naviria_graph.png"                                             
 
 # -------------------------------------STATE------------------------------------------
 
@@ -48,27 +50,31 @@ class State(BaseModel):
     messages : Annotated[List[AnyMessage], operator.add] = Field(
         description="List of messages in the conversation")
 
-# -------------------------------------NODES------------------------------------------
+# -------------------------------------AUXILIARY_FUNCTIONS----------------------------
 
-def llm_node(state: State, config: RunnableConfig, store: BaseStore):
+def get_memory(config: RunnableConfig, store: BaseStore) -> str:
 
-    """ Runs the LLM without deep_research """ 
+    """ Retrieves the user's memory from the store """
 
     user_id = config["configurable"]["user_id"]
     namespace = ("memory", user_id)
     key = "user_memory"
 
     existing_memory = store.get(namespace, key)
-    if existing_memory:
-        # Value is a dictionary with a memory key
-        memory = existing_memory.value.get('memory')
-    else:
-        memory = "No existing memory found."
+    memory = existing_memory.value.get('memory',"No existing memory found.")
+
+    return memory
+
+# -------------------------------------NODES------------------------------------------
+
+def llm_node(state: State, config: RunnableConfig, store: BaseStore):
+
+    """ Runs the LLM without deep_research """ 
+
+    memory = get_memory(config, store)
         
     system_msg = LLM_PROMPT.format(memory=memory)
-
     response = llm.invoke([SystemMessage(content=system_msg)] + state.messages)
-
     return {"messages": [response]}
 
 @tool
@@ -95,19 +101,14 @@ def save_memory(state: State, config: RunnableConfig, store: BaseStore):
 
     """ Saves the conversation in memory"""
 
-    user_id = config["configurable"]["user_id"]
-    namespace = ("memory", user_id)
-    key = "user_memory"
-
-    existing_memory = store.get(namespace, key)
-    if existing_memory:
-        # Value is a dictionary with a memory key
-        memory = existing_memory.value.get('memory')
-    else:
-        memory = "No existing memory found."
+    memory = get_memory(config, store)
 
     system_msg = CREATE_MEMORY_PROMPT.format(memory=memory)
     response = llm.invoke([SystemMessage(content=system_msg)] + state.messages)
+
+    user_id = config["configurable"]["user_id"]
+    namespace = ("memory", user_id)
+    key = "user_memory"
 
     store.put(namespace,key, {"memory": response.content})
 
@@ -116,7 +117,7 @@ def tools_condition(state: State, config: RunnableConfig):
     """ Determines which is the next node to run"""
 
     last_message = state.messages[-1]
-    if isinstance(last_message, AIMessage) and last_message.additional_kwargs.get("tool_calls"):
+    if isinstance(last_message, AIMessage) and last_message.tool_calls:
         return "search_tools"
     return "save_memory"
 
@@ -140,7 +141,7 @@ builder.add_conditional_edges('llm', tools_condition, ["search_tools", "save_mem
 builder.add_edge("search_tools", "llm")
 builder.add_edge("save_memory", END)
 
-graph = builder.compile(checkpointer=within_thread_memory, store=across_thread_memory)
+graph = builder.compile(checkpointer=MemorySaver(), store=InMemoryStore())
 
 # -------------------------------------PLOTTING---------------------------------------
 
