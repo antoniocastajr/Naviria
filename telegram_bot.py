@@ -36,3 +36,4 @@ async def respond(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except Exception as e:
         LOGGER.exception("Unexpected error: %s", str(e))
         await update.message.reply_text("Something went wrong. Try again.")
+
