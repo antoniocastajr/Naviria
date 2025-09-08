@@ -1,4 +1,4 @@
-## 🤖 Naviria: Telegram-native AI agent that pairs Retrieval-Augmented Generation with MCP-connected tools
+## 🤖 Naviria: A Telegram AI Agent Powered by LangGraph, RAG, and MCP
 
 <p align="left">
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white" />
@@ -27,9 +27,9 @@ Naviria is a Telegram-native AI assistant I’m building to learn—and showcase
 
 Naviria's logic is built as a stateful, cyclic graph using LangGraph. This allows for a robust and debuggable flow where each step is a distinct node. The agent follows this distinct sequence, visualized below, to process every user request.
 
-This flow consists of the following key steps:
+<img src="naviria_graph.png" alt="Naviria Agent Graph" width="210" align="right">
 
-<img src="naviria_graph.png" alt="Naviria Agent Graph" width="220" align="right">
+This flow consists of the following key steps:
 
 1.  **🚦 Intelligent Routing** (`router_node`): The process begins with a router powered by [`gpt-5-nano`][gpt5nano] and a structured Pydantic model (`Route`). It analyzes the user's message against the `ROUTER_PROMPT` to decide the optimal path: `browser` for real-time queries or `retrieve_from_vectorstore` for general knowledge.
 
