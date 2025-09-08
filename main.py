@@ -5,8 +5,8 @@
 # DESCRIPTION OF THE FILE: This script sets up a Telegram bot using the python-telegram-bot library.
 
 # --------------------------------------IMPORTS------------------------------------------
-import asyncio
-import os
+import asyncio                                                                                  # For asynchronous programming
+import os                                                                                       # To handle file paths and environment variables     
 import logging                                                                                  # For debugging and information purposes
 import telegram_bot                                                                             # Import the telegram module for bot functionalities
 

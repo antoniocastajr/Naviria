@@ -5,30 +5,30 @@
 # DESCRIPTION OF THE FILE: This file contains the main agent logic for Naviria, including state management, routing, and interaction with external tools.
 
 # -------------------------------------IMPORTS----------------------------------------
-import operator
-import os
-import faiss
+import operator                                                                             # For combining lists of messages        
+import os                                                                                   # To handle file paths
+import faiss                                                                                # For vector store management
 
-from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama  
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain_community.vectorstores import FAISS
-from langchain_huggingface.embeddings import HuggingFaceEmbeddings                                                 
-from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, AIMessage  
-from langchain_core.runnables.config import RunnableConfig
-from langchain_core.documents import Document
-from langgraph.store.memory import InMemoryStore
-from langgraph.store.base import BaseStore
-from langgraph.checkpoint.memory import MemorySaver                                 
-from langgraph.graph import StateGraph, START, END                    
-from pydantic import BaseModel, Field                                        
+from langchain_openai import ChatOpenAI                                                     # For using OpenAI models
+from langchain_ollama import ChatOllama                                                     # For using models by Ollama
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings                          # For embedding: embeddinggemma (Google)    
+from langchain_community.vectorstores import FAISS                                          # For vector store management
+from langchain_community.docstore.in_memory import InMemoryDocstore                         # In-memory document storage for FAISS
+from langchain_core.documents import Document                                               # Document structure for storing text data 
+from langgraph.store.base import BaseStore                                                  # Base store interface for memory management                                           
+from langchain_core.messages import HumanMessage, SystemMessage, AnyMessage, AIMessage      # Types of messages in Langgraph  
+from langchain_core.runnables.config import RunnableConfig                                  # Configuration for states
+from langgraph.graph import StateGraph, START, END                                          # Nodes in langgraph
+from langgraph.store.memory import InMemoryStore                                            # Long-term memory storage
+from langgraph.checkpoint.memory import MemorySaver                                         # Short-term memory checkpointing                                                  
+from pydantic import BaseModel, Field                                                       # For data validation and settings management of each state                                                                
 
-from main import LOGGER
-from dotenv import load_dotenv                                                                  
-from prompts import LLM_PROMPT, CREATE_MEMORY_PROMPT, ROUTER_PROMPT                                                    
-from typing import Annotated, List
-from typing import Literal
-from mcp_clients import tavily_client
+from main import LOGGER                                                                     # Logger for debugging and information purposes
+from dotenv import load_dotenv                                                              # To set environment variables for API keys                                          
+from prompts import LLM_PROMPT, CREATE_MEMORY_PROMPT, ROUTER_PROMPT                         # Prompts used in the project                                                       
+from typing import Annotated, List                                                          # Types for states
+from typing import Literal                                                                  # Options for routing
+from mcp_clients import tavily_client                                                       # MCP Clients
 
 # -------------------------------------TOKENS-----------------------------------------
 
@@ -47,23 +47,18 @@ models = {
 # -------------------------------------VARIABLES--------------------------------------
 
 llm = models['gpt-5-nano']                                                                  # WRITE THE MODEL THAT YOU WANT TO USE!!!
-embedder = HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m",                   # Visit https://huggingface.co/google/embeddinggemma-300m to ask for access
-                                query_encode_kwargs={"prompt_name": "query"},
-                                encode_kwargs={"prompt_name": "document"})  
-
-# Calls your embedding model once on "hello world" just to learn the vector dimension
-index = faiss.IndexFlatL2(len(embedder.embed_query("hello world")))
+embedder = HuggingFaceEmbeddings(model_name="google/embeddinggemma-300m",                   # EmbeddingGemma (Google), released 4 September 2025, with 308M parameters.
+                                query_encode_kwargs={"prompt_name": "query"},               # Visit https://huggingface.co/google/embeddinggemma-300m to ask for access
+                                encode_kwargs={"prompt_name": "document"})                          
 
 vector_store = FAISS(
     embedding_function=embedder,
-    index=index,
+    index=faiss.IndexFlatIP(len(embedder.embed_query("hello world"))),                      # Using Inner Product (IP) for cosine similarity
     docstore=InMemoryDocstore(),                                                            # Vector store keeps all the documents in memory
-    index_to_docstore_id={},
-    distance_strategy="MAX_INNER_PRODUCT"                                                   # Setting distance_strategy to "MAX_INNER_PRODUCT" uses
-                                                                                            # FAISS' FlatIndexIP behind the scenes, which is optimized for inner product search.
+    index_to_docstore_id={}
 )
 
-naviria_path = 'naviria_graph.png'
+naviria_path = 'naviria_graph.png'                                                          # Path to save the graph image  
 
 # -------------------------------------ROUTE_MODEL-----------------------------------
 
@@ -76,8 +71,7 @@ class Route(BaseModel):
 # -------------------------------------STATE------------------------------------------
 
 class State(BaseModel):
-    messages: Annotated[List[AnyMessage], operator.add] = Field(
-        description='List of messages in the conversation')
+    messages: Annotated[List[AnyMessage], operator.add] = Field(description='List of messages in the conversation')
     search_result: List[dict] = Field(description='Results of Tavily MCP Client', default=[])
     best_documents: List[Document] = Field(description='Most similar documents from vector store', default=None)
     memory: str = Field(description='User memory', default='No existing memory found.')
@@ -95,7 +89,7 @@ def last_user_message(state: State) -> HumanMessage:
         if isinstance(msg, HumanMessage):
             last_user_message = msg
             return last_user_message
-
+        
     return last_user_message                                                                # Return None if no HumanMessage found
 
 # -------------------------------------NODES------------------------------------------
@@ -128,13 +122,13 @@ async def router_node(state: State, config: RunnableConfig, store: BaseStore):
 
 def route_after_router(state: State):
     
-    '''Routes based on router decision'''
+    '''Function uses as conditional_node after router_node '''
 
     return state.next_action
 
 async def browser_node(state: State, config: RunnableConfig, store: BaseStore):
     
-    ''' Node that uses Tavily search to answer questions '''
+    ''' Node that uses Tavily by MCP to answer questions '''
     
     # Get the last user message
     last_message = last_user_message(state)
@@ -145,8 +139,7 @@ async def browser_node(state: State, config: RunnableConfig, store: BaseStore):
 
     try:
         # Use the MCP Tavily Client
-        search_result = await tavily_client(last_message.content)
-        
+        search_result = await tavily_client(last_message.content)                           # search_result = [{'title': ..., 'content': ...}, ...]
         return {'search_result': search_result}
         
     except Exception as e:
@@ -155,20 +148,26 @@ async def browser_node(state: State, config: RunnableConfig, store: BaseStore):
     
 def store_in_vectorstore_node(state: State):
     
-    """ Store search results from Tavily into the vector store"""
+    ''' Store search results from Tavily into the vector store '''
 
+    # Get search results from Tavily MCP Client
     search_result = state.search_result    
     
     try:
+        # Get the current number of documents in the vector store to create unique IDs
         count = vector_store.index.ntotal
         LOGGER.info(f'Number of documents before adding new ones: {count}')
-        documents = [Document(
-            page_content=doc.get('content', ''), 
-            metadata={
-                'title': doc.get('title', ''), 
-                'id': i + count
-            }
-        ) for i, doc in enumerate(search_result)]
+
+        # Convert search results to Document objects with unique IDs
+        documents = []
+        for i, doc in enumerate(search_result):
+            document = Document(page_content=doc.get('content', ''), 
+                    metadata={
+                        'title': doc.get('title', ''), 
+                        'id': i + count
+                    })
+            documents.append(document)
+        # Add documents to the vector store
         if documents:
             vector_store.add_documents(documents)
             LOGGER.info(f"Stored {len(documents)} documents in vector store.")
@@ -188,24 +187,35 @@ def retrieve_best_documents_node(state: State, config: RunnableConfig, store: Ba
         LOGGER.error("No user message found for retrieving best documents.")
         return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
 
-    query = last_message.content
+    if vector_store.index.ntotal == 0:
+        LOGGER.info("Vector store is empty. No documents to retrieve.")
+        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
     try:
-        results = vector_store.similarity_search_with_score(query, k=2)
+        # Get the two documents most similar to the user's last message
+        results = vector_store.similarity_search_with_score(last_message.content, k=2)
 
         # Extract documents and scores from tuples (document, score)
         scores = []
         documents = []
         for doc, score in results:
-            scores.append(float(score))
-            documents.append(doc)
+            # If the score is above 0.35, I consider the document as relevant
+            if float(score) > 0.35:
+                scores.append(float(score))
+                document = Document(page_content=doc.page_content, metadata={"similarity": float(score)})
+                documents.append(document)
 
-        LOGGER.info(f"Retrieved {len(documents)} documents with similarity scores: {scores}")
-        return {'best_documents': documents}
+        if len(documents) != 0:
+            LOGGER.info(f"Retrieved {len(documents)} documents with similarity scores: {scores}")
+            return {'best_documents': documents}
+        
+        LOGGER.info("No documents passed the similarity threshold.")
+        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
+
     except Exception as e:
         LOGGER.error(f"Error retrieving best documents: {e}")
         return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
 
-def get_memory_node(state: State, config: RunnableConfig, store: BaseStore) -> str:
+def get_memory_node(state: State, config: RunnableConfig, store: BaseStore):
 
     ''' Retrieves the user's memory from the store '''
 
@@ -230,6 +240,7 @@ async def respond_node(state: State, config: RunnableConfig, store: BaseStore):
     # Get the memory and included it into the PROMPT
     memory = state.memory
     best_documents = state.best_documents
+    LOGGER.info(f'Best documents for response: {best_documents}')
     system_msg = LLM_PROMPT.format(memory=memory, best_documents=best_documents)
 
     try:
@@ -241,7 +252,7 @@ async def respond_node(state: State, config: RunnableConfig, store: BaseStore):
 
 async def save_memory_node(state: State, config: RunnableConfig, store: BaseStore):
 
-    ''' Saves the conversation in memory'''
+    ''' Saves the conversation in memory '''
 
     # Get the memory and included it into the PROMPT
     
@@ -295,10 +306,10 @@ graph = builder.compile(checkpointer=MemorySaver(), store=InMemoryStore())
 
 # -------------------------------------PLOTTING---------------------------------------
 
-""" Generates the graph only if it was not generated previously """
+''' Generates the graph only if it was not generated previously '''
 
 if not os.path.exists(naviria_path):
-    naviria_graph = graph.get_graph().draw_mermaid_png(max_retries=5, retry_delay=2.0)    # Use the mermaid API to draw the graph
+    naviria_graph = graph.get_graph().draw_mermaid_png(max_retries=5, retry_delay=2.0)          # Use the mermaid API to draw the graph
     with open(naviria_path, 'wb') as f:
         f.write(naviria_graph)
         f.close()  
@@ -307,9 +318,8 @@ if not os.path.exists(naviria_path):
 
 async def set_model(input: str, user_id: int):
 
-    """ Initializes the graph and returns the response to the TELEGRAM API """
+    ''' Initializes the graph and returns the response to the TELEGRAM API '''
 
-    # Config for short-long memory associated to user
-    config = {'configurable': {'thread_id': str(user_id), 'user_id': str(user_id)}}
-    response = await graph.ainvoke({'messages': [HumanMessage(content=input)]}, config)
-    return response['messages'][-1].content
+    config = {'configurable': {'thread_id': str(user_id), 'user_id': str(user_id)}}             # Config for short-long memory associated to user
+    response = await graph.ainvoke({'messages': [HumanMessage(content=input)]}, config)         # Run the graph in async mode
+    return response['messages'][-1].content                                                     # Provide the respond to TELEGRAM API

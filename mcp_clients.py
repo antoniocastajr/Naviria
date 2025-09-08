@@ -4,14 +4,14 @@
 # DESCRIPTION: Naviria is a personal AI assistant that can help you with various tasks such as answering questions, writing emails, and scheduling meetings.
 # DESCRIPTION OF THE FILE: This file manages connections to external services via MCP clients.
 
-import json
+import json                                                                                     # For handling JSON data
 
-from dotenv import load_dotenv
-from mcp_use import MCPAgent, MCPClient
-from langchain_openai import ChatOpenAI
-from langchain_ollama import ChatOllama 
+from langchain_openai import ChatOpenAI                                                         # For using OpenAI models
+from langchain_ollama import ChatOllama                                                         # For using models by Ollama
 
-from main import LOGGER
+from dotenv import load_dotenv                                                                  # To set environment variables for API keys
+from mcp_use import MCPAgent, MCPClient                                                         # MCP client for connecting to external services
+from main import LOGGER                                                                         # Logger for debugging and information purposes
 
 # -------------------------------------TOKENS-----------------------------------------
 
@@ -38,7 +38,7 @@ async def tavily_client(query: str):
     
     client = None
     try:
-        # Get the config from JSON
+        # Get the config for the connection from JSON
         with open("tavily.json", "r") as f:
             config = json.load(f)
 
@@ -46,7 +46,7 @@ async def tavily_client(query: str):
         client = MCPClient.from_dict(config)
 
         # Create sessions between clients and servers with timeout
-        await client.create_all_sessions()
+        await client.create_all_sessions()                                                          # Creates one session per client
         session = client.get_session('tavily-remote')
         
         #tools = await session.list_tools()
@@ -57,7 +57,7 @@ async def tavily_client(query: str):
             name='tavily_search',
             arguments={
                 'query': query,
-                'max_results': 2,
+                'max_results': 3,
                 'search_depth': 'basic',
                 'topic': 'general',
                 'include_raw_content': False,
@@ -71,15 +71,15 @@ async def tavily_client(query: str):
             
             # Create a list of unique content from each document
             results = []
-            seen_content = set()  # To track unique content
+            seen_content = set()                                                                    # To track unique content
             
+            # Append and prepare Tavily results
             for result in search_results:
                 content = result.get('content', '').strip()
                 title = result.get('title', '').strip()
                 
                 # Create a unique identifier based on content to avoid duplicates
-                content_hash = hash(content) if content else None
-                
+                content_hash = hash(content) if content else None        
                 if content and content_hash not in seen_content:
                     results.append({'title': title, 'content': content})
                     seen_content.add(content_hash)

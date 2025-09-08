@@ -6,15 +6,56 @@
 
 # ----------------------------------------TELEGRAM_PROMPTS-----------------------------------------
 
-START_PROMPT = (""" 
-            Welcome to Naviria, your personal AI assistant created by Antonio Castañares Rodríguez.\n\n
-            How can I assist you today?
+START_PROMPT = ("""🌟 Welcome to Naviria! 🌟
+I'm your personal AI assistant created by Antonio Castañares Rodríguez. I'm here to help you with a wide range of tasks and conversations.
+
+✨ What I can do:
+    • Answer questions on any topic
+    • Search the web for current information
+    • Remember our conversations
+    • Help with creative tasks
+    • Provide explanations and tutorials
+    • Assist with problem-solving
+
+💬 Just ask me anything! I'll search for current information when needed or use my knowledge to help you.
+
+How can I assist you today?
 """)
 
-HELP_PROMPT = (""" 
-            Naviria is your personal AI assistant.\n\n
-            You can ask me anything, and I will do my best to assist you. Here are some functionalities:\n\n
-            - Conversation mode: 
+HELP_PROMPT = ("""🤖 Naviria - Your Personal AI Assistant
+📋 **Main Functionalities:**
+
+    🔍 **Intelligent Routing**
+        • Automatically decides whether to search the web or use stored knowledge
+        • Smart detection of real-time vs. general knowledge queries
+
+    🌐 **Web Search Integration**
+        • Real-time information retrieval via Tavily search
+        • Current news, weather, stock prices, and live data
+        • Automatic filtering and relevance checking
+
+    🧠 **Memory & Learning**
+        • Remembers our conversations and your preferences
+        • Builds long-term memory of your interests and needs
+        • Personalized responses based on past interactions
+
+    📚 **Vector Knowledge Store**
+        • Stores and retrieves relevant information from previous searches
+        • FAISS-powered similarity search for quick access
+        • Builds a growing knowledge base from our conversations
+
+    💡 **Hybrid Intelligence**
+        • Combines web search + stored knowledge + AI reasoning
+        • Seamless switching between information sources
+        • Contextual responses using the best available data
+
+    🎯 **Smart Features**
+        • Conversation continuity across sessions
+        • Automatic relevance filtering of search results
+        • Personalized assistance based on your history
+
+Simply ask me anything - I'll automatically choose the best way to help you! 
+I'm here to make your life easier and more informed. Let's get started! 🚀
 """)
 
 # ----------------------------------------LLM_PROMPTS----------------------------------------------
@@ -60,24 +101,30 @@ LLM_PROMPT = ("""
             **Memory (Previous conversations):**
             {memory}
 
-            **Best Documents related to the user's query (obtained by retrieval from vector store):**
+            **Best Documents (Retrieved from vector store):**
             {best_documents}
 
-            ### Rules:
+            ### Instructions:
 
-            1. **First**, check if the **memory** contains relevant information about the user or previous conversations.
-            2. **Second**, check if the **best documents** contain relevant information from previous searches.
-            3. **Third**, use your **internal knowledge** to answer the question if **memory** or **best documents** don't provide sufficient information.
-            4. **Be conversational** and reference past interactions when appropriate (e.g., "As we discussed before..." or "Based on what I found in similar searches...").
-            5. Your response must be under **4096 characters**.
+            1. **ALWAYS use Memory**: If memory contains relevant information about the user or previous conversations, incorporate it into your response.
 
-            ### Priority Order:
-            1. Personal information and preferences from memory
-            2. Factual information from best documents
-            3. General knowledge and reasoning
-            4. Creative and helpful responses
+            2. **Use Best Documents when relevant**: 
+               - If best_documents contain useful information related to the query, use them to enhance your answer
+               - If best_documents show "No similar documents found" or contain irrelevant content, ignore them completely
 
-            Remember: You're having a continuous conversation with this user, so use memory and context to provide personalized, coherent responses.
+            3. **Fill gaps with internal knowledge**: Use your built-in knowledge to provide complete, helpful answers when memory and documents don't cover everything needed.
+
+            4. **Be conversational**: Reference past interactions when appropriate (e.g., "As we discussed before..." or "I found some information about this earlier...").
+
+            5. **Response limit**: Keep your response under 4096 characters.
+
+            ### Response Strategy:
+            - Combine memory + relevant documents + internal knowledge for comprehensive answers
+            - Prioritize memory and best documents over general information
+            - Only mention document sources if they add significant value
+            - Default to your internal knowledge when best documents aren't helpful
+
+            Remember: You're having a continuous conversation with this user, so maintain context and provide personalized, coherent responses.
 """)
 
 CREATE_MEMORY_PROMPT = ("""

@@ -7,7 +7,7 @@
 # ----------------------------------------IMPORTS----------------------------------------                              
 from telegram import ForceReply, Update                                                         # To send messages and replies to users
 from telegram.ext import ContextTypes                                                           # To handle commands and messages from users
-from telegram.error import NetworkError
+from telegram.error import NetworkError                                                         # To handle network-related errors
 
 from main import LOGGER                                                                         # Logger for debugging and information purposes    
 from agent import set_model                                                                     # Function to set the model for generating responses
