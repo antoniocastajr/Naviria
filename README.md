@@ -23,7 +23,7 @@ Naviria is a Telegram-native AI assistant I’m building to learn—and showcase
 
 <p align="center">
   <video
-    src="https://github.com/user-attachments/assets/6364da2c-71b5-4c6b-8f8b-68d89244ea7b"
+    src="https://github.com/user-attachments/assets/e19945b5-1a25-4e85-9b7f-0dbcef9cbb9a"
     controls
     muted
     playsinline
