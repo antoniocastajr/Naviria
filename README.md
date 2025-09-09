@@ -22,9 +22,16 @@ Naviria is a Telegram-native AI assistant I’m building to learn—and showcase
 - 🔀 **Flexible LLM integration:** Works with multiple models—OpenAI (e.g., [gpt-5-nano][gpt5nano], [gpt-4.1-nano][gpt41nano], [gpt-4o-mini][gpt4omini]) and open-source via Ollama (e.g., [llama3.1:8b][llama], [gpt-oss:20b][gtposs]).
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/58a73d11-eec8-461a-b447-7b4992741696"
-       alt="Naviria demo gif" />
+  <video
+    src="https://github.com/user-attachments/assets/6364da2c-71b5-4c6b-8f8b-68d89244ea7b"
+    controls
+    muted
+    playsinline
+    loop
+    width="720">
+  </video>
 </p>
+
 
 ---
 
