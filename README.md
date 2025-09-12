@@ -13,7 +13,7 @@
 
 
 
-Naviria is a Telegram-native AI assistant I’m building to learn—and showcase—the core technologies behind modern AI agents. It combines LLM-driven reasoning, the [Model Context Protocol (MCP)][mcp] for pluggable tools, and [Retrieval-Augmented Generation (RAG)][rag] with embeddings and a vector store. Beyond simple Q&A, Naviria integrates a modular architecture and a selection of AI Agent's resources:
+Naviria is a conversational AI agent deployed on Telegram I’m building to learn—and showcase—the core technologies behind modern AI agents. It combines LLM-driven reasoning, the [Model Context Protocol (MCP)][mcp] for pluggable tools, and [Retrieval-Augmented Generation (RAG)][rag] with embeddings and a vector store. Beyond simple Q&A, Naviria integrates a modular architecture and a selection of AI Agent's resources:
 
 - 🧩 **Advanced agentic logic:** Built on [LangGraph][langgraph], Naviria runs as a state machine, intelligently routing user requests across tools and knowledge sources.
 - 🔎 **Retrieval-Augmented Generation (RAG):** A self-updating knowledge base powered by a [FAISS][faiss] vector store and Google’s high-performance [EmbeddingGemma][embedder] model for document embeddings.
