@@ -198,10 +198,10 @@ def retrieve_best_documents_node(state: State, config: RunnableConfig, store: Ba
         scores = []
         documents = []
         for doc, score in results:
-            # If the score is above 0.35, I consider the document as relevant
-            if float(score) > 0.35:
+            # If the score is above 0.4, I consider the document as relevant
+            if float(score) > 0.4:
                 scores.append(float(score))
-                document = Document(page_content=doc.page_content, metadata={"similarity": float(score)})
+                document = Document(page_content=doc.page_content, metadata={"similarity": float(score), "title": doc.metadata.get('title', 'N/A')})
                 documents.append(document)
 
         if len(documents) != 0:
@@ -209,11 +209,11 @@ def retrieve_best_documents_node(state: State, config: RunnableConfig, store: Ba
             return {'best_documents': documents}
         
         LOGGER.info("No documents passed the similarity threshold.")
-        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
+        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0, "title": "N/A"})]}
 
     except Exception as e:
         LOGGER.error(f"Error retrieving best documents: {e}")
-        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0})]}
+        return {'best_documents': [Document(page_content='No similar documents found.', metadata={"similarity": 0, "title": "N/A"})]}
 
 def get_memory_node(state: State, config: RunnableConfig, store: BaseStore):
 
@@ -241,7 +241,21 @@ async def respond_node(state: State, config: RunnableConfig, store: BaseStore):
     memory = state.memory
     best_documents = state.best_documents
     LOGGER.info(f'Best documents for response: {best_documents}')
-    system_msg = LLM_PROMPT.format(memory=memory, best_documents=best_documents)
+    
+    # Format documents into readable text for the LLM
+    if best_documents and best_documents[0].page_content != 'No similar documents found.':
+        formatted_docs = "\n\n".join([
+            f"Document {i+1} (Similarity: {doc.metadata.get('similarity', 0):.2f}):\n"
+            f"Title: {doc.metadata.get('title', 'N/A')}\n"
+            f"Content: {doc.page_content}"
+            for i, doc in enumerate(best_documents)
+        ])
+    else:
+        formatted_docs = "No similar documents found."
+    
+    #LOGGER.info(f'Formatted documents for LLM:\n{formatted_docs}')
+
+    system_msg = LLM_PROMPT.format(memory=memory, best_documents=formatted_docs)
 
     try:
         response = await llm.ainvoke([SystemMessage(content=system_msg)] + state.messages)

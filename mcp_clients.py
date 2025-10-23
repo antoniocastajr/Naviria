@@ -87,11 +87,11 @@ async def tavily_client(query: str):
             return results
         else:
             LOGGER.warning('No structured content found in Tavily results')
-            return [f"Search completed but no results found for: {query}"]
+            return [{'title': 'No Results', 'content': f"Search completed but no results found for: {query}"}]
         
     except Exception as e:
         LOGGER.error(f'MCP Tavily connection failed: {e}')
-        return [f"Search temporarily unavailable. Please try asking about general topics or try again later."]
+        return [{'title': 'Search Unavailable', 'content': 'Search temporarily unavailable. Please try asking about general topics or try again later.'}]
 
     finally:
         # Ensure sessions are properly closed even if errors occur

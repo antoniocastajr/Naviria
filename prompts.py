@@ -101,30 +101,38 @@ LLM_PROMPT = ("""
             **Memory (Previous conversations):**
             {memory}
 
-            **Best Documents (Retrieved from vector store):**
+            **Best Documents (Retrieved from vector store with current/searched information):**
             {best_documents}
 
-            ### Instructions:
+            ### Critical Instructions:
 
-            1. **ALWAYS use Memory**: If memory contains relevant information about the user or previous conversations, incorporate it into your response.
+            1. **PRIORITIZE Best Documents**: 
+               - Best Documents contain the MOST CURRENT and RELEVANT information from web searches
+               - If best_documents provide information related to the query, YOU MUST use them as your PRIMARY source
+               - Best Documents override your internal knowledge when they contain relevant information
+               - Only ignore best_documents if they explicitly show "No similar documents found"
 
-            2. **Use Best Documents when relevant**: 
-               - If best_documents contain useful information related to the query, use them to enhance your answer
-               - If best_documents show "No similar documents found" or contain irrelevant content, ignore them completely
+            2. **Use Memory for Personalization**:
+               - Memory may contain personal information about the user or past conversations
+               - Incorporate memory to personalize your response when available
+               - If memory shows "No existing memory found", simply proceed without personalization
 
-            3. **Fill gaps with internal knowledge**: Use your built-in knowledge to provide complete, helpful answers when memory and documents don't cover everything needed.
+            3. **Fallback to Internal Knowledge**:
+               - ONLY use your internal knowledge when BOTH memory and best_documents are empty or irrelevant
+               - If best_documents are present, they likely contain more current information than your training data
 
-            4. **Be conversational**: Reference past interactions when appropriate (e.g., "As we discussed before..." or "I found some information about this earlier...").
+            4. **Response Guidelines**:
+               - Keep responses under 3000 characters
+               - Be direct and only provide information explicitly requested
+               - When using best_documents, integrate the information naturally without always citing sources
+               - If best_documents contain current information that contradicts your training data, TRUST THE DOCUMENTS
 
-            5. **Response limit**: Keep your response under 4096 characters.
+            ### Response Priority Order:
+            1. **Best Documents** (most current and searched information) - USE FIRST
+            2. **Memory** (personalization and user context) - ADD CONTEXT
+            3. **Internal Knowledge** (only when documents are unavailable) - USE AS LAST RESORT
 
-            ### Response Strategy:
-            - Combine memory + relevant documents + internal knowledge for comprehensive answers
-            - Prioritize memory and best documents over general information
-            - Only mention document sources if they add significant value
-            - Default to your internal knowledge when best documents aren't helpful
-
-            Remember: You're having a continuous conversation with this user, so maintain context and provide personalized, coherent responses.
+            Remember: Best Documents are fetched specifically for this query and contain the most relevant, up-to-date information. Always prioritize them over your general knowledge.
 """)
 
 CREATE_MEMORY_PROMPT = ("""
